@@ -1,10 +1,71 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: 'Nested CloudFormation template to create an S3 bucket with versioning and public access blocking'
+Description: 'Root CloudFormation template for Secure File Sharing & Malware Protection. Invokes nested stacks that create an encrypted, versioned S3 bucket for uploaded files.'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Nested Stack Configuration"
+        Parameters:
+          - NestedStacksS3BucketName
+      - Label:
+          default: "S3 Bucket Configuration"
+        Parameters:
+          - ProjectName
+          - BucketBaseName
+          - Environment
+      - Label:
+          default: "Encryption Configuration"
+        Parameters:
+          - KmsKey
+          - CWLogGroupKmsKey
+          - EnableBucketKey
+      - Label:
+          default: "Lambda IAM Role Configuration"
+        Parameters:
+          - LambdaBaseName
+          - LambdaRoleBaseName
+      - Label:
+          default: "Advanced Configuration"
+        Parameters:
+          - CiSuffix
+
+    ParameterLabels:
+      NestedStacksS3BucketName:
+        default: "S3 Bucket Name"
+      ProjectName:
+        default: "Project Name"
+      BucketBaseName:
+        default: "Bucket Base Name"
+      Environment:
+        default: "Environment"
+      KmsKey:
+        default: "KMS Key (ARN / Alias)"
+      CWLogGroupKmsKey:
+        default: "CloudWatch Logs KMS Key (ARN / Alias)"
+      EnableBucketKey:
+        default: "Enable S3 Bucket Key"
+      LambdaBaseName:
+        default: "Lambda Function Base Name"
+      LambdaRoleBaseName:
+        default: "Lambda Execution Role Name"
+      CiSuffix:
+        default: "CI Suffix"
 
 Parameters:
+  NestedStacksS3BucketName:
+    Type: String
+    Default: "subhamay-cfn-templates-bucket-270453428528-us-east-1"
+    Description: "S3 bucket name where the nested CloudFormation template is stored"
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"
+    ConstraintDescription: "S3 bucket name must be 3-63 characters, start and end with lowercase letter or number, and can contain hyphens and dots"
+
   ProjectName:
     Type: String
+    Default: "proj-ztc"
     Description: "Project name to use as a bucket prefix"
     MinLength: 1
     MaxLength: 20
@@ -13,47 +74,186 @@ Parameters:
 
   BucketBaseName:
     Type: String
-    Default: cfn-bucket
+    Default: "secure-cloudshare"
+    MinLength: 1
+    MaxLength: 20
+    AllowedPattern: "^[a-z0-9.-]+$"
+    ConstraintDescription: "Bucket base name must be 1-20 characters and can only contain lowercase letters, numbers, hyphens, and dots"
     Description: Base name for the S3 bucket (account ID, environment, and region will be appended)
 
-  environment:
+  KmsKey:
     Type: String
-    Default: devl
+    Default: "SB-KMS"
+    AllowedPattern: "^(alias/[a-zA-Z0-9_-]+|arn:aws:kms:[a-z0-9-]+:[0-9]+:key/[a-zA-Z0-9-]+|[a-zA-Z0-9_-]+)?$"
+    ConstraintDescription: "KMS Key can be a key name (e.g., my-key, auto-converted to alias/my-key), a KMS key alias (e.g., alias/my-key), or a full KMS key ARN (e.g., arn:aws:kms:region:account:key/key-id), or leave empty for no KMS encryption"
+    Description: "Optional KMS Key for S3 bucket encryption. Accepts: key name (my-key), alias (alias/my-key), or ARN (arn:aws:kms:region:account:key/key-id). Plain key names are auto-converted to aliases."
+
+  CWLogGroupKmsKey:
+      Type: String
+      Default: "arn:aws:kms:us-east-1:269235677084:key/e691f177-0403-4b15-b9a7-50b57b204140"
+      AllowedPattern: "^(alias/[a-zA-Z0-9_-]+|arn:aws:kms:[a-z0-9-]+:[0-9]+:key/[a-zA-Z0-9-]+|[a-zA-Z0-9_-]+)?$"
+      ConstraintDescription: "KMS Key can be a key name (e.g., my-key, auto-converted to alias/my-key), a KMS key alias (e.g., alias/my-key), or a full KMS key ARN (e.g., arn:aws:kms:region:account:key/key-id), or leave empty for no KMS encryption"
+      Description: "Optional KMS Key for CloudWatch Logs encryption. Accepts: key name (my-key), alias (alias/my-key), or ARN (arn:aws:kms:region:account:key/key-id). Leave empty to use default encryption."
+
+  EnableBucketKey:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Enable S3 Bucket Key for KMS encryption cost optimization (only applicable when KmsKey is provided)"
+
+  LambdaBaseName:
+    Type: String
+    Default: "secure-object-access"
+    MinLength: 1
+    MaxLength: 20
+    AllowedPattern: "^[a-z0-9-]+$"
+    ConstraintDescription: "Lambda base name must be 1-20 characters and contain only lowercase letters, numbers, and hyphens"
+    Description: "Base name for the Lambda function (project name, base name, environment, and region will be combined)"
+
+  LambdaRoleBaseName:
+    Type: String
+    Default: "secure-object-access-lambda-role"
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: "^[a-zA-Z0-9-]+$"
+    ConstraintDescription: "Lambda role base name must be 1-64 characters and contain only alphanumeric characters and hyphens"
+    Description: "Base name of the IAM role for Lambda function execution"
+
+  Environment:
+    Type: String
+    Default: "devl"
     Description: "Deployment environment for the S3 bucket"
 
   CiSuffix:
     Type: String
     Default: ""
-    Description: "Optional CI prefix to append to the bucket name"
+    Description: "Optional CI suffix to append to the bucket name"
 
 Conditions:
+  HasCWLogGroupKmsKey: !Not [!Equals [!Ref CWLogGroupKmsKey, ""]]
   HasCiSuffix: !Not [!Equals [!Ref CiSuffix, ""]]
 
 Resources:
-  S3Bucket:
-    Type: AWS::S3::Bucket
+  S3BucketNestedStack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Invokes the nested S3 bucket CloudFormation template to create a versioned, encrypted S3 bucket with public access blocking and optional logging/website configuration"
+        must:
+          - "Nested template must be accessible at the specified S3 location"
+          - "IAM principal must have s3:GetObject permission on the template S3 bucket"
+          - "CloudFormation service must have permission to assume the required IAM role for S3 and KMS operations"
     Properties:
-      BucketName: !If
-        - HasCiSuffix
-        - !Sub '${ProjectName}-${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}-${CiSuffix}'
-        - !Sub '${ProjectName}-${BucketBaseName}-${AWS::AccountId}-${environment}-${AWS::Region}'
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+      TemplateURL: !Sub "https://${NestedStacksS3BucketName}.s3.us-east-1.amazonaws.com/cfn-nested-aws-s3-bucket/template.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        BucketBaseName: !Ref BucketBaseName
+        KmsKey: !Ref KmsKey
+        EnableBucketKey: !Ref EnableBucketKey
+        Environment: !Ref Environment
+        WebsiteConfiguration: "true"
+        CiSuffix: !Ref CiSuffix
+      Tags:
+        - Key: ManagedBy
+          Value: RootStack
+        - Key: NestedStackPurpose
+          Value: S3BucketCreation
+
+  LambdaCWLogGroupNestedStack:
+      Type: AWS::CloudFormation::Stack
+      DeletionPolicy: Delete
+      UpdateReplacePolicy: Delete
+      Metadata:
+        com.aws.cloudformation.Context:
+          why: "Invokes the nested CloudWatch Logs CloudFormation template to create a log group for Lambda functions"
+          must:
+            - "Nested template must be accessible at the specified S3 location"
+            - "IAM principal must have s3:GetObject permission on the template S3 bucket"
+            - "CloudFormation service must have permission to create CloudWatch Logs resources"
+      Properties:
+        TemplateURL: !Sub "https://${NestedStacksS3BucketName}.s3.us-east-1.amazonaws.com/cfn-nested-aws-cloudwatch-log-group/template.yaml"
+        Parameters:
+          ProjectName: !Ref ProjectName
+          CustomLogGroupName: !If
+            - HasCiSuffix
+            - !Sub "/aws/lambda/${ProjectName}-${LambdaBaseName}-${Environment}-${AWS::Region}-${CiSuffix}"
+            - !Sub "/aws/lambda/${ProjectName}-${LambdaBaseName}-${Environment}-${AWS::Region}"
+          RetentionInDays: 14
+          KmsKeyIdOrAlias: !If [HasCWLogGroupKmsKey, !Ref CWLogGroupKmsKey, ""]
+          Environment: !Ref Environment
+          CiSuffix: !Ref CiSuffix
+        Tags:
+          - Key: Environment
+            Value: !Ref Environment
+          - Key: Project
+            Value: !Ref ProjectName
+          - Key: Component
+            Value: LambdaLogGroup
+          - Key: ManagedBy
+            Value: RootStack
+        TimeoutInMinutes: 5
+
+  LambdaIAMRoleNestedStack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: "Invokes the nested IAM role CloudFormation template to create an execution role for Lambda functions with permissions for S3, DynamoDB, and CloudWatch Logs"
+        must:
+          - "Nested template must be accessible at the specified S3 location"
+          - "IAM principal must have s3:GetObject permission on the template S3 bucket"
+          - "CloudFormation service must have permission to create IAM roles and inline policies"
+    Properties:
+      TemplateURL: !Sub "https://${NestedStacksS3BucketName}.s3.us-east-1.amazonaws.com/cfn-nested-aws-iam-roles-policies/template.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        RoleName: !Ref LambdaRoleBaseName
+        Environment: !Ref Environment
+        AssumeRolePrincipal: "lambda.amazonaws.com"
+        EnableLambdaBasicExecutionPolicy: "true"
+        EnableS3ReadOnlyPolicy: "true"
+        EnableKMSPolicy: "true"
+        S3BucketArn: !GetAtt S3BucketNestedStack.Outputs.S3BucketArn
+        LambdaBasicExecutionLogGroupArn: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-${LambdaBaseName}-${Environment}-${AWS::Region}:*"
+        CiSuffix: !Ref CiSuffix
+
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Component
+          Value: LambdaExecutionRole
+        - Key: ManagedBy
+          Value: RootStack
+      TimeoutInMinutes: 5
 
 Outputs:
+  NestedStackId:
+    Description: "ID of the nested stack"
+    Value: !Ref S3BucketNestedStack
+    Export:
+      Name: !Sub "${AWS::StackName}-NestedStackId"
+
   S3BucketName:
-    Description: "Name of the S3 bucket"
-    Value: !Ref S3Bucket
+    Description: "Name of the S3 bucket created by the nested stack"
+    Value: !GetAtt S3BucketNestedStack.Outputs.S3BucketName
     Export:
       Name: !Sub "${AWS::StackName}-BucketName"
 
   S3BucketArn:
-    Description: "ARN of the S3 bucket"
-    Value: !GetAtt S3Bucket.Arn
+    Description: "ARN of the S3 bucket created by the nested stack"
+    Value: !GetAtt S3BucketNestedStack.Outputs.S3BucketArn
     Export:
       Name: !Sub "${AWS::StackName}-BucketArn"
+
+  NestedStackOutputs:
+    Description: "All outputs from the nested stack"
+    Value: !Sub |
+      BucketName: ${S3BucketNestedStack.Outputs.S3BucketName}
+      BucketArn: ${S3BucketNestedStack.Outputs.S3BucketArn}

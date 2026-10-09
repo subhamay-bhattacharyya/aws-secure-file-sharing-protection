@@ -1,247 +1,154 @@
-# CloudFormation S3 Template Repository
+# Secure File Sharing & Malware Protection
 
 <!-- Row 1: Status - Most Important -->
-[![Release](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template/actions/workflows/release.yaml/badge.svg)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template)&nbsp;[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template)&nbsp;[![Issues](https://img.shields.io/github/issues/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template/issues)&nbsp;[![Last Commit](https://img.shields.io/github/last-commit/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template/commits)
+[![Release](https://img.shields.io/github/v/release/subhamay-bhattacharyya/aws-secure-file-sharing-protection?label=Release)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/releases)&nbsp;[![Release Workflow](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/actions/workflows/release.yaml/badge.svg)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/actions/workflows/release.yaml)&nbsp;[![Issues](https://img.shields.io/github/issues/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/issues)&nbsp;[![Last Commit](https://img.shields.io/github/last-commit/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/commits)
 
 <!-- Row 2: Code Quality -->
-[![Top Language](https://img.shields.io/github/languages/top/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template)&nbsp;[![Commits](https://img.shields.io/github/commit-activity/t/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template/commits)
+[![Top Language](https://img.shields.io/badge/Languages-Python%20%7C%20YAML-blue)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection)&nbsp;[![Commits](https://img.shields.io/github/commit-activity/t/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/commits)
 
 <!-- Row 3: Tech Stack -->
-[![CloudFormation](https://img.shields.io/badge/CloudFormation-IaC-orange?logo=amazon&logoColor=white)](https://aws.amazon.com/cloudformation/)&nbsp;[![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-D97757?logo=anthropic&logoColor=white)](https://claude.ai/)
+[![CloudFormation](https://img.shields.io/badge/CloudFormation-IaC-orange?logo=amazonaws&logoColor=white)](https://aws.amazon.com/cloudformation/)&nbsp;[![Built with Claude Code](https://img.shields.io/badge/Built_with-Claude_Code-D97757?logo=anthropic&logoColor=white)](https://claude.ai/)
 
 <!-- Row 4: Repository Info -->
-[![Files](https://img.shields.io/github/directory-file-count/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template)&nbsp;[![Repo Size](https://img.shields.io/github/repo-size/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template)&nbsp;[![Release Date](https://img.shields.io/github/release-date/subhamay-bhattacharyya-cfn/cloudformation-template)](https://github.com/subhamay-bhattacharyya-cfn/cloudformation-template/releases)
+[![Files](https://img.shields.io/github/directory-file-count/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection)&nbsp;[![Repo Size](https://img.shields.io/github/repo-size/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection)&nbsp;[![Release Date](https://img.shields.io/github/release-date/subhamay-bhattacharyya/aws-secure-file-sharing-protection)](https://github.com/subhamay-bhattacharyya/aws-secure-file-sharing-protection/releases)
 
 <!-- Row 5: Custom Metrics -->
-[![Custom Endpoint](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/bsubhamay/f55f73ac88992d4bd5c9835ee5fd70b6/raw/aws-vpc-cloudformation-fundamentals.json)](https://gist.github.com/subhamay-bhattacharyya/f55f73ac88992d4bd5c9835ee5fd70b6)
+[![Custom Endpoint](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/bsubhamay/12dba80e1074b231a77e0d5e0f344523/raw/aws-secure-file-sharing-protection.json)](https://gist.github.com/subhamay-bhattacharyya/12dba80e1074b231a77e0d5e0f344523)
 
-This repository contains nested CloudFormation templates for deploying S3 buckets with security best practices and optional policy enforcement.
+This repository provides a root CloudFormation stack that deploys a secure file-sharing backend: an encrypted, versioned S3 bucket for uploaded files, with malware and sensitive-data protection built around it.
 
-## Overview
+## Architecture
 
-This is a **nested stack template** designed to be invoked from a parent/root CloudFormation stack. Templates are stored in this repository and should be uploaded to an S3 bucket for reference by parent stacks.
+```mermaid
+flowchart LR
+    User(["1. User"])
+    CF["2. Amazon CloudFront<br/>(HTTPS)"]
+    OLAP["S3 Object Lambda<br/>access point"]
+    Lambda["3. AWS Lambda<br/>file validation"]
+    S3[("4. Amazon S3 bucket<br/>encrypted + versioned")]
+    Macie["5. Amazon Macie<br/>sensitive data scan"]
+    Shield["6. AWS Shield Standard<br/>DDoS protection"]
+    CW["7. Amazon CloudWatch<br/>metrics + alerts"]
+
+    User -->|"Upload over HTTPS"| CF
+    CF -->|"Routes request"| OLAP
+    OLAP -->|"Invokes"| Lambda
+    Lambda -->|"Valid file"| S3
+    S3 -->|"Scans uploaded objects"| Macie
+    CF -.->|"Protected by"| Shield
+    Lambda -->|"Logs and metrics"| CW
+    Macie -->|"Findings"| CW
+```
+
+### Request flow
+
+1. A **user** uploads a file through **CloudFront** over HTTPS.
+2. **CloudFront** routes the request to the **S3 Object Lambda access point**.
+3. **Object Lambda** invokes a **Lambda** function to validate the file.
+4. If the file is valid, it is stored in the **S3 bucket**, which is encrypted and versioned.
+5. **Amazon Macie** scans the uploaded file for sensitive or confidential data.
+6. **AWS Shield Standard** protects CloudFront from DDoS attacks.
+7. **CloudWatch** collects metrics and sends alerts on blocked or suspicious uploads.
+
+### Current implementation
+
+The root template in [`cloudformation/template.yaml`](cloudformation/template.yaml) deploys the following nested stacks. The remaining components in the diagram (CloudFront, the Object Lambda access point, Macie, Shield, and CloudWatch alerting) are not yet defined in this template.
+
+| Nested stack | Nested template (in the templates bucket) | Resource created |
+| ------------ | ----------------------------------------- | ---------------- |
+| `S3BucketNestedStack` | `cfn-nested-aws-s3-bucket/template.yaml` | Versioned S3 bucket with public access blocked, website configuration enabled |
+| `LambdaCWLogGroupNestedStack` | `cfn-nested-aws-cloudwatch-log-group/template.yaml` | CloudWatch Logs group for the Lambda function, 14-day retention |
+| `LambdaIAMRoleNestedStack` | `cfn-nested-aws-iam-roles-policies/template.yaml` | Lambda execution role with basic logging, S3 read-only, and KMS policies |
 
 ## Template Files
 
-### CloudFormation Templates
+- **`cloudformation/template.yaml`** — Root stack that invokes the nested stacks above
+- **`cloudformation/parameters.json`** — Example parameter values for a deployment
 
-- **`templates/s3-bucket.yaml`** — Nested template for S3 bucket creation (versioning, public access blocking)
-- **`templates/s3-bucket-policy.yaml`** — Optional nested template for S3 bucket policy (encryption enforcement, secure transport)
-
-### Parameter Files
-
-- **`parameters/parameters.json`** — Parameter values for development environment
-
-## Template Features
-
-### S3 Bucket Template (s3-bucket.yaml)
-
-- ✅ Versioning enabled by default
-- ✅ Public Access Blocking
-- ✅ Smart bucket naming (project prefix, account ID, environment, region)
-- ✅ Optional CI suffix support
-
-### S3 Bucket Policy Template (s3-bucket-policy.yaml)
-
-- ✅ Encryption enforcement on uploads
-- ✅ Secure transport enforcement (HTTPS only)
-- ✅ Optional/conditional policy rules
+The nested templates are referenced from `NestedStacksS3BucketName`. They must be uploaded to that bucket before the root stack is deployed.
 
 ## Parameters
 
-### S3 Bucket Parameters
+| Parameter | Default | Description |
+| --------- | ------- | ----------- |
+| `NestedStacksS3BucketName` | `subhamay-cfn-templates-bucket-270453428528-us-east-1` | S3 bucket that hosts the nested templates |
+| `ProjectName` | `proj-ztc` | Project name used as the resource name prefix (lowercase letters, numbers, hyphens; max 20) |
+| `BucketBaseName` | `secure-cloudshare` | Base name for the S3 bucket (max 20) |
+| `Environment` | `devl` | Deployment environment |
+| `KmsKey` | `SB-KMS` | KMS key name, alias, or ARN for S3 bucket encryption. Leave empty for no KMS encryption |
+| `CWLogGroupKmsKey` | `arn:aws:kms:us-east-1:269235677084:key/e691f177-0403-4b15-b9a7-50b57b204140` | KMS key name, alias, or ARN for CloudWatch Logs encryption. Leave empty to use default encryption |
+| `EnableBucketKey` | `false` | Enable S3 Bucket Key to reduce KMS request costs (applies when `KmsKey` is set) |
+| `LambdaBaseName` | `secure-object-access` | Base name for the Lambda function (max 20). Used in the log group name |
+| `LambdaRoleBaseName` | `secure-object-access-lambda-role` | Name of the Lambda execution IAM role (max 64) |
+| `CiSuffix` | `""` | Optional suffix appended to resource names for CI deployments |
 
-| Parameter | Type | Default | Description |
-| ----------- | ------ | --------- | ------------- |
-| `ProjectName` | String | — | Project name to use as bucket prefix (required) |
-| `BucketBaseName` | String | `cfn-bucket` | Base name for S3 bucket |
-| `environment` | String | `devl` | Deployment environment (devl, stag, prod) |
-| `CiSuffix` | String | `""` | Optional CI suffix to append to bucket name |
-
-### S3 Bucket Policy Parameters
-
-**Generic (Standalone) Mode:**
-
-| Parameter | Type | Description |
-| ----------- | ------ | ------------- |
-| `BucketName` | String | Direct bucket name (use for any bucket) |
-
-**Integrated Mode (with bucket template):**
-
-| Parameter | Type | Default | Description |
-| ----------- | ------ | --------- | ------------- |
-| `ProjectName` | String | — | Project name (must match bucket template) |
-| `BucketBaseName` | String | `cfn-bucket` | Base name (must match bucket template) |
-| `environment` | String | `devl` | Environment (must match bucket template) |
-| `CiSuffix` | String | `""` | CI suffix (must match bucket template) |
-
-**Usage:** If `BucketName` is provided (non-empty), it takes precedence. Otherwise, the bucket name is constructed from ProjectName/BucketBaseName/environment/CiSuffix.
+Parameters are grouped in the CloudFormation console as Nested Stack Configuration, S3 Bucket Configuration, Encryption Configuration, Lambda IAM Role Configuration, and Advanced Configuration.
 
 ## Outputs
 
-### S3 Bucket Template Outputs
+| Output | Description |
+| ------ | ----------- |
+| `NestedStackId` | ID of the S3 bucket nested stack |
+| `S3BucketName` | Name of the S3 bucket |
+| `S3BucketArn` | ARN of the S3 bucket |
+| `NestedStackOutputs` | Bucket name and ARN, as a text block |
 
-- `S3BucketName` — S3 bucket name
-- `S3BucketArn` — S3 bucket ARN
-
-### S3 Bucket Policy Template Outputs
-
-- `BucketName` — Bucket name with policy applied
-- `PolicyStatus` — Policy application status (Applied)
+`S3BucketName` and `S3BucketArn` are exported as `<stack-name>-BucketName` and `<stack-name>-BucketArn` for cross-stack references.
 
 ## Usage
 
-### 1. Upload Templates to S3
+### 1. Upload the nested templates
+
+Upload each nested template to the folder that `TemplateURL` expects in `NestedStacksS3BucketName`:
 
 ```bash
-aws s3 cp templates/s3-bucket.yaml s3://your-cfn-bucket/templates/s3-bucket.yaml
-aws s3 cp templates/s3-bucket-policy.yaml s3://your-cfn-bucket/templates/s3-bucket-policy.yaml
+aws s3 cp <s3-bucket-template-path>/template.yaml s3://subhamay-cfn-templates-bucket-270453428528-us-east-1/cfn-nested-aws-s3-bucket/template.yaml
+aws s3 cp <cloudwatch-log-group-template-path>/template.yaml s3://subhamay-cfn-templates-bucket-270453428528-us-east-1/cfn-nested-aws-cloudwatch-log-group/template.yaml
+aws s3 cp <iam-roles-policies-template-path>/template.yaml s3://subhamay-cfn-templates-bucket-270453428528-us-east-1/cfn-nested-aws-iam-roles-policies/template.yaml
 ```
 
-### 2. Reference from Parent Stack
-
-In your parent/root CloudFormation template:
-
-```yaml
-S3BucketNestedStack:
-  Type: AWS::CloudFormation::Stack
-  Properties:
-    TemplateURL: https://s3.amazonaws.com/your-cfn-bucket/templates/s3-bucket.yaml
-    Parameters:
-      ProjectName: !Ref ProjectName
-      BucketBaseName: cfn-bucket
-      environment: !Ref Environment
-      CiSuffix: !Ref CiSuffix
-    Tags:
-      - Key: Environment
-        Value: !Ref Environment
-
-S3PolicyNestedStack:
-  Type: AWS::CloudFormation::Stack
-  DependsOn: S3BucketNestedStack
-  Properties:
-    TemplateURL: https://s3.amazonaws.com/your-cfn-bucket/templates/s3-bucket-policy.yaml
-    Parameters:
-      BucketName: !GetAtt S3BucketNestedStack.Outputs.S3BucketName
-      ProjectName: ""
-      BucketBaseName: cfn-bucket
-      environment: !Ref Environment
-      CiSuffix: !Ref CiSuffix
-    Tags:
-      - Key: Environment
-        Value: !Ref Environment
-
-Outputs:
-  BucketName:
-    Value: !GetAtt S3BucketNestedStack.Outputs.S3BucketName
-  BucketArn:
-    Value: !GetAtt S3BucketNestedStack.Outputs.S3BucketArn
-```
-
-### 3. Deploy Using AWS CLI
-
-#### Option A: Deploy Bucket Only
+### 2. Validate the root template
 
 ```bash
-# Development (without CI prefix)
-aws cloudformation create-stack \
-  --stack-name cfn-s3-bucket-dev \
-  --template-body file://templates/s3-bucket.yaml \
-  --parameters file://parameters/dev.json
-
-# Staging (without CI prefix)
-aws cloudformation create-stack \
-  --stack-name cfn-s3-bucket-stag \
-  --template-body file://templates/s3-bucket.yaml \
-  --parameters file://parameters/staging.json
-
-# Production (without CI prefix)
-aws cloudformation create-stack \
-  --stack-name cfn-s3-bucket-prod \
-  --template-body file://templates/s3-bucket.yaml \
-  --parameters file://parameters/prod.json
+aws cloudformation validate-template --template-body file://cloudformation/template.yaml
 ```
 
-#### Option B: Deploy Bucket + Policy (Recommended)
-
-```bash
-# Deploy bucket first
-aws cloudformation create-stack \
-  --stack-name cfn-s3-bucket-dev \
-  --template-body file://templates/s3-bucket.yaml \
-  --parameters file://parameters/dev.json
-
-# Wait for bucket to be created
-aws cloudformation wait stack-create-complete --stack-name cfn-s3-bucket-dev
-
-# Get the bucket name from stack outputs
-BUCKET_NAME=$(aws cloudformation describe-stacks \
-  --stack-name cfn-s3-bucket-dev \
-  --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
-  --output text)
-
-#### Using Integrated Mode (with bucket template parameters)
+### 3. Deploy the root stack
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name cfn-s3-policy-dev \
-  --template-body file://templates/s3-bucket-policy.yaml \
-  --parameters file://parameters/policy-dev.json
+  --stack-name secure-file-sharing-devl \
+  --template-body file://cloudformation/template.yaml \
+  --parameters file://cloudformation/parameters.json \
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+
+aws cloudformation wait stack-create-complete --stack-name secure-file-sharing-devl
 ```
 
-#### Using Generic Mode (standalone with direct bucket name)
-
-```bash
-aws cloudformation create-stack \
-  --stack-name cfn-s3-policy-dev \
-  --template-body file://templates/s3-bucket-policy.yaml \
-  --parameters \
-    ParameterKey=BucketName,ParameterValue=my-existing-bucket \
-    ParameterKey=ProjectName,ParameterValue=""
-```
-
-#### Option C: Deploy with CI Suffix
-
-```bash
-# Development with CI suffix (e.g., for GitLab CI)
-aws cloudformation create-stack \
-  --stack-name cfn-s3-bucket-dev-ci \
-  --template-body file://templates/s3-bucket.yaml \
-  --parameters \
-    ParameterKey=ProjectName,ParameterValue=myproject \
-    ParameterKey=BucketBaseName,ParameterValue=cfn-bucket \
-    ParameterKey=environment,ParameterValue=devl \
-    ParameterKey=CiSuffix,ParameterValue=$CI_PIPELINE_ID
-```
+Override any parameter by editing `cloudformation/parameters.json` or by passing `ParameterKey=...,ParameterValue=...` pairs to `--parameters`.
 
 ## Bucket Naming Convention
 
-The templates generate bucket names using the following pattern:
-
-**Without CI Suffix:**
+The S3 bucket name is built from the parameters:
 
 ```bash
-{ProjectName}-{BucketBaseName}-{AccountId}-{Environment}-{Region}
+{ProjectName}-{BucketBaseName}-{AccountId}-{Environment}-{Region}[-{CiSuffix}]
 ```
 
-Example: `myproject-cfn-bucket-123456789012-devl-us-east-1`
+Example: `myproject-secure-cloudshare-123456789012-devl-us-east-1`
 
-**With CI Suffix:**
+The `-{CiSuffix}` part is added only when `CiSuffix` is set.
 
-```bash
-{ProjectName}-{BucketBaseName}-{AccountId}-{Environment}-{Region}-{CiSuffix}
-```
+## Security Controls Implemented
 
-Example: `myproject-cfn-bucket-123456789012-devl-us-east-1-pipeline-12345`
+- ✅ S3 bucket versioning enabled
+- ✅ S3 public access blocked
+- ✅ KMS encryption for the S3 bucket and CloudWatch Logs (when keys are provided)
+- ✅ Lambda execution role with scoped basic-logging, S3 read-only, and KMS policies
+- ✅ Lambda logs retained for 14 days
+- ✅ Nested stacks tagged with `ManagedBy=RootStack`
 
-## Best Practices Implemented
-
-- ✅ Versioning enabled by default
-- ✅ Public access blocked by default
-- ✅ Smart bucket naming with project prefix, account ID, environment, and region
-- ✅ Optional CI suffix support for unique deployments
-- ✅ Optional policy enforcement (encryption and secure transport)
-- ✅ Export values for cross-stack references
+Planned, per the architecture above: HTTPS-only upload through CloudFront, file validation at the Object Lambda access point, Macie sensitive-data scanning, and CloudWatch alerting on blocked uploads.
 
 ## License
 
