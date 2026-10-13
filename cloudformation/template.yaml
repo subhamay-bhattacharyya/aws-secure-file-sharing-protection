@@ -2,9 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 
 Description: >-
   Root CloudFormation template for Secure File Sharing & Malware Protection. Creates:
-  - S3BucketNestedStack: S3 bucket for uploaded files (versioned, public access blocked, optional KMS encryption, website configuration)
-  - LambdaCWLogGroupNestedStack: CloudWatch Logs log group for the Lambda function (14-day retention, optional KMS encryption)
-  - LambdaIAMRoleNestedStack: IAM execution role for the Lambda function (basic execution logging, read-only S3 access, KMS access)
+  - S3 bucket for uploaded files (versioned, public access blocked, optional KMS encryption, website configuration)
+  - CloudWatch Logs log group for the Lambda function (14-day retention, optional KMS encryption)
+  - IAM execution role for the Lambda function (basic execution logging, read-only S3 access, KMS access)
+  
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
